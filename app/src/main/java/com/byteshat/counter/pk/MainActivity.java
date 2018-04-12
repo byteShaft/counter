@@ -3,66 +3,64 @@ package com.byteshat.counter.pk;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.graphics.Bitmap;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.v7.app.AlertDialog;
 import android.view.KeyEvent;
 import android.view.Window;
-import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.CookieSyncManager;
 import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
-import im.delight.android.webview.AdvancedWebView;
 
-public class MainActivity extends Activity implements AdvancedWebView.Listener {
+public class MainActivity extends Activity {
 
-    public AdvancedWebView mWebView;
-    public String url = "https://multan.counter.pk/";
-    public MainActivity sInstance;
-    ProgressDialog pd;
+    private static final String URL = "https://multan.counter.pk/";
+
+    public WebView mWebView;
+    private ProgressDialog mProgressDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
-        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.activity_main);
-        sInstance = MainActivity.this;
-        pd = ProgressDialog.show(MainActivity.this, "", "Please wait...", true);
+
+        CookieSyncManager.createInstance(getApplicationContext());
+
+        mProgressDialog = ProgressDialog.show(MainActivity.this, "", "Loading screen...", true);
         mWebView = findViewById(R.id.web_view);
         WebSettings webSettings = mWebView.getSettings();
-        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
-        mWebView.getSettings().setJavaScriptEnabled(true);
-        mWebView.getSettings().setAppCacheEnabled(true);
-        mWebView.setCookiesEnabled(true);
-        mWebView.setThirdPartyCookiesEnabled(true);
-        CookieSyncManager.createInstance(this);
-        CookieManager.getInstance().setAcceptCookie(true);
-        mWebView.setListener(this, this);
-        mWebView.loadUrl(url);
+        webSettings.setJavaScriptEnabled(true);
+
+        CookieManager manager = CookieManager.getInstance();
+        if (Build.VERSION.SDK_INT < 21) {
+            manager.setAcceptCookie(true);
+        } else {
+            manager.setAcceptThirdPartyCookies(mWebView, true);
+        }
+
+        mWebView.setWebViewClient(new MyWebViewClient());
 
         if (isNetworkAvailable()) {
-            mWebView.loadUrl(url);
+            mWebView.loadUrl(URL);
         } else {
             alertDialog(MainActivity.this, "Connection error", "Check your internet connection");
         }
     }
 
-
     public void alertDialog(Activity activity, String title, String msg) {
         AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(activity);
         alertDialogBuilder.setTitle(title);
-        alertDialogBuilder.setMessage(msg).setCancelable(false).setPositiveButton("Ok",
-                new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        dialog.dismiss();
-                        sInstance.finish();
-
-                    }
+        alertDialogBuilder.setMessage(msg).setCancelable(false).setPositiveButton(
+                "Ok", (dialog, id) -> {
+                    dialog.dismiss();
+                    finish();
                 });
         AlertDialog alertDialog = alertDialogBuilder.create();
         alertDialog.show();
@@ -77,39 +75,23 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
     }
 
     @Override
-    public void onPageStarted(String url, Bitmap favicon) {
-        pd.show();
-
-    }
-
-    @Override
-    public void onPageFinished(String url) {
-        pd.dismiss();
-
-    }
-
-    @Override
-    public void onPageError(int errorCode, String description, String failingUrl) {
-        pd.dismiss();
-
-    }
-
-    @Override
-    public void onDownloadRequested(String url, String suggestedFilename, String mimeType, long contentLength, String contentDisposition, String userAgent) {
-
-    }
-
-    @Override
-    public void onExternalPageRequest(String url) {
-
-    }
-
-    @Override
     protected void onResume() {
         super.onResume();
+        CookieSyncManager.getInstance().startSync();
         mWebView.onResume();
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        CookieSyncManager.getInstance().stopSync();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        CookieSyncManager.getInstance().sync();
+    }
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
@@ -127,5 +109,19 @@ public class MainActivity extends Activity implements AdvancedWebView.Listener {
         }
         return super.onKeyDown(keyCode, event);
 
+    }
+
+    private class MyWebViewClient extends WebViewClient {
+        @Override
+        public void onPageStarted(WebView view, String url, Bitmap favicon) {
+            super.onPageStarted(view, url, favicon);
+            mProgressDialog.show();
+        }
+
+        @Override
+        public void onPageFinished(WebView view, String url) {
+            super.onPageFinished(view, url);
+            mProgressDialog.dismiss();
+        }
     }
 }
