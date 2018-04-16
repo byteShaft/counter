@@ -20,7 +20,7 @@ import android.webkit.WebViewClient;
 
 public class MainActivity extends Activity {
 
-    private static final String URL = "https://multan.counter.pk/";
+    private static final String URL = "https://counter.pk/";
 
     public WebView mWebView;
     private ProgressDialog mProgressDialog;
